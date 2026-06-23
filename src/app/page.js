@@ -1,65 +1,122 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const [items, setItems] = useState([]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // READ
+  async function fetchItems() {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("items")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (error) {
+      console.error("Fetch error:", error);
+      setLoading(false);
+      return;
+    }
+
+    setItems(data || []);
+    setLoading(false);
+  }
+
+  // CREATE
+  async function addItem(e) {
+    e.preventDefault();
+
+    if (!title.trim() || !description.trim()) return;
+
+    const { error } = await supabase.from("items").insert({
+      title,
+      description,
+    });
+
+    if (error) {
+      console.error("Insert error:", error);
+      return;
+    }
+
+    setTitle("");
+    setDescription("");
+    fetchItems();
+  }
+
+  // DELETE
+  async function deleteItem(id) {
+    const { error } = await supabase
+      .from("items")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Delete error:", error);
+      return;
+    }
+
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main style={{ maxWidth: 700, margin: "40px auto", fontFamily: "sans-serif" }}>
+      <h1>Supabase Items Demo</h1>
+
+      {/* FORM */}
+      <form onSubmit={addItem} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <input
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <textarea
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <button type="submit">Add Item</button>
+      </form>
+
+      <hr style={{ margin: "30px 0" }} />
+
+      {/* LIST */}
+      <h2>Items</h2>
+
+      {loading && <p>Loading...</p>}
+
+      {!loading && items.length === 0 && <p>No items yet.</p>}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {items.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              border: "1px solid #ccc",
+              padding: 12,
+              borderRadius: 6,
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
+
+            <button onClick={() => deleteItem(item.id)}>
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }
